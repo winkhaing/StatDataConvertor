@@ -1,0 +1,114 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://statdata-converter.org/schemas/vendor-certification-manifest-v1.json",
+  "title": "StatData Converter vendor certification evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "format_id",
+    "direction",
+    "vendor",
+    "fixture",
+    "validation_result",
+    "conversion_report",
+    "destination_opening"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "format_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "direction": {
+      "enum": ["read", "write", "round_trip"]
+    },
+    "vendor": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["product", "version", "operating_system"],
+      "properties": {
+        "product": {
+          "type": "string",
+          "minLength": 1
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "operating_system": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "fixture": {
+      "$ref": "#/$defs/evidenceFile"
+    },
+    "validation_result": {
+      "$ref": "#/$defs/evidenceFile"
+    },
+    "conversion_report": {
+      "$ref": "#/$defs/evidenceFile"
+    },
+    "destination_opening": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["passed", "application_version", "notes"],
+      "properties": {
+        "passed": {
+          "type": "boolean"
+        },
+        "application_version": {
+          "type": "string"
+        },
+        "notes": {
+          "type": "string"
+        }
+      }
+    },
+    "expected_transformations": {
+      "type": "array",
+      "description": "Exact warning/error and non-exact temporal codes expected in the conversion report.",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "certifier": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "organization": {
+          "type": "string"
+        },
+        "role": {
+          "type": "string"
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "evidenceFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,270 @@
+name: Desktop release
+
+on:
+  workflow_dispatch:
+    inputs:
+      require_signing:
+        description: Fail unless Apple and Windows signing credentials are configured
+        required: true
+        type: boolean
+        default: false
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  quality:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          python-version: "3.12"
+      - run: npm run release:check-version
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || '' }}
+      - run: npm ci
+      - run: npm run engine:setup
+      - run: npm test
+      - run: npm run build
+      - run: npm run engine:test
+
+  build:
+    needs: quality
+    timeout-minutes: 90
+    permissions:
+      contents: write
+      id-token: write
+      attestations: write
+    env:
+      RELEASE_REQUIRE_SIGNING: ${{ github.event_name == 'push' || inputs.require_signing }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x64
+            runner: ubuntu-24.04
+            os: linux
+            bundles: deb,appimage
+            artifact: linux-x64
+          - name: Windows x64
+            runner: windows-2025
+            os: windows
+            bundles: msi,nsis
+            artifact: windows-x64
+          - name: macOS ARM64
+            runner: macos-15
+            os: macos
+            bundles: app,dmg
+            artifact: macos-arm64
+          - name: macOS Intel
+            runner: macos-15-intel
+            os: macos
+            bundles: app,dmg
+            artifact: macos-x64
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+      - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          python-version: "3.12"
+      - name: Linux desktop dependencies
+        if: matrix.os == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - run: npm ci
+      - run: npm run engine:setup
+      - name: Import Apple signing certificate
+        if: matrix.os == 'macos'
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [[ -z "$APPLE_CERTIFICATE" || -z "$APPLE_CERTIFICATE_PASSWORD" || -z "$KEYCHAIN_PASSWORD" ]]; then
+            if [[ "$RELEASE_REQUIRE_SIGNING" == "true" ]]; then
+              echo "Apple signing certificate secrets are required." >&2
+              exit 1
+            fi
+            echo "Apple signing credentials are absent; producing an unsigned test build."
+            echo "APPLE_SIGNING_IDENTITY=-" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          if [[ "$RELEASE_REQUIRE_SIGNING" == "true" && ( -z "$APPLE_ID" || -z "$APPLE_PASSWORD" || -z "$APPLE_TEAM_ID" ) ]]; then
+            echo "Apple notarization secrets are required for a signed release." >&2
+            exit 1
+          fi
+          printf '%s' "$APPLE_CERTIFICATE" | openssl base64 -d -A -out "$RUNNER_TEMP/certificate.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -t 3600 -u build.keychain
+          security import "$RUNNER_TEMP/certificate.p12" -k build.keychain -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" build.keychain
+          CERT_ID=$(security find-identity -v -p codesigning build.keychain | awk -F'"' 'NR == 1 { print $2 }')
+          if [[ -z "$CERT_ID" ]]; then
+            echo "No valid Apple code-signing identity was imported." >&2
+            exit 1
+          fi
+          echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
+      - name: Import Windows signing certificate
+        id: windows_signing
+        if: matrix.os == 'windows'
+        shell: pwsh
+        env:
+          WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+          WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+          WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE) -or [string]::IsNullOrWhiteSpace($env:WINDOWS_CERTIFICATE_PASSWORD)) {
+            if ($env:RELEASE_REQUIRE_SIGNING -eq "true") {
+              throw "Windows code-signing certificate secrets are required."
+            }
+            Write-Host "Windows signing credentials are absent; producing an unsigned test build."
+            "args=" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+            exit 0
+          }
+          $certificatePath = Join-Path $env:RUNNER_TEMP "statdata-certificate.pfx"
+          [IO.File]::WriteAllBytes($certificatePath, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $password = ConvertTo-SecureString -String $env:WINDOWS_CERTIFICATE_PASSWORD -Force -AsPlainText
+          $certificate = Import-PfxCertificate -FilePath $certificatePath -CertStoreLocation Cert:\CurrentUser\My -Password $password
+          if ($null -eq $certificate) {
+            throw "The Windows code-signing certificate could not be imported."
+          }
+          $timestampUrl = if ([string]::IsNullOrWhiteSpace($env:WINDOWS_TIMESTAMP_URL)) {
+            "http://timestamp.digicert.com"
+          } else {
+            $env:WINDOWS_TIMESTAMP_URL
+          }
+          $configuration = @{
+            bundle = @{
+              windows = @{
+                certificateThumbprint = $certificate.Thumbprint
+                digestAlgorithm = "sha256"
+                timestampUrl = $timestampUrl
+              }
+            }
+          }
+          $configurationPath = Join-Path $env:RUNNER_TEMP "tauri.windows-signing.json"
+          $configuration | ConvertTo-Json -Depth 4 | Set-Content -Path $configurationPath -Encoding utf8
+          "args=--config $configurationPath" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "WINDOWS_CERTIFICATE_THUMBPRINT=$($certificate.Thumbprint)" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "WINDOWS_TIMESTAMP_URL_RESOLVED=$timestampUrl" | Out-File -FilePath $env:GITHUB_ENV -Append
+      - run: npm run engine:bundle
+      - run: npm run bridge:jmp:build
+      - run: npm run bridge:sas:build
+      - run: npm run bridge:windows-com:build
+        if: matrix.os == 'windows'
+      - name: Smoke-test packaged macOS bridges
+        if: matrix.os == 'macos'
+        run: |
+          "bridges/jmp/bundle/statdata-jmp-bridge" --help > /dev/null
+          "bridges/sas/bundle/sas-data/statdata-sas-bridge" --help > /dev/null
+      - name: Sign Windows engine and bridge executables
+        if: matrix.os == 'windows' && env.WINDOWS_CERTIFICATE_THUMBPRINT != ''
+        shell: pwsh
+        run: |
+          $signTool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin" -Filter signtool.exe -Recurse |
+            Where-Object { $_.FullName -like "*\x64\signtool.exe" } |
+            Sort-Object FullName |
+            Select-Object -Last 1
+          if ($null -eq $signTool) {
+            throw "Windows SignTool was not found."
+          }
+          $executables = @(
+            Get-ChildItem src-tauri/binaries -Filter *.exe -File
+            Get-ChildItem bridges -Filter *.exe -File -Recurse |
+              Where-Object { $_.FullName -match "[\\/]bundle[\\/]" }
+          )
+          if ($executables.Count -eq 0) {
+            throw "No Windows engine or bridge executables were found."
+          }
+          foreach ($executable in $executables) {
+            & $signTool.FullName sign /sha1 $env:WINDOWS_CERTIFICATE_THUMBPRINT /fd SHA256 /tr $env:WINDOWS_TIMESTAMP_URL_RESOLVED /td SHA256 $executable.FullName
+            if ($LASTEXITCODE -ne 0) {
+              throw "SignTool failed for $($executable.FullName)."
+            }
+            & $signTool.FullName verify /pa /all $executable.FullName
+            if ($LASTEXITCODE -ne 0) {
+              throw "Signature verification failed for $($executable.FullName)."
+            }
+          }
+      - uses: tauri-apps/tauri-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_SIGNING_IDENTITY: ${{ env.APPLE_SIGNING_IDENTITY }}
+        with:
+          tagName: v__VERSION__
+          releaseName: StatData Converter v__VERSION__
+          releaseBody: Platform installers and optional local vendor bridges are attached. Verify the platform signature, SHA-256 manifest, and GitHub build-provenance attestation before installation.
+          releaseDraft: true
+          prerelease: false
+          args: --bundles ${{ matrix.bundles }} ${{ steps.windows_signing.outputs.args }}
+      - name: Smoke-test finished installers
+        run: npm run release:smoke-package
+      - name: Verify Apple signature and notarization
+        if: matrix.os == 'macos' && env.RELEASE_REQUIRE_SIGNING == 'true'
+        run: |
+          codesign --verify --deep --strict --verbose=2 "src-tauri/target/release/bundle/macos/StatData Converter.app"
+          spctl --assess --type execute --verbose=2 "src-tauri/target/release/bundle/macos/StatData Converter.app"
+      - name: Verify Windows Authenticode signatures
+        if: matrix.os == 'windows' && env.RELEASE_REQUIRE_SIGNING == 'true'
+        shell: pwsh
+        run: |
+          $installers = Get-ChildItem src-tauri/target/release/bundle -Recurse -File | Where-Object { $_.Extension -in ".exe", ".msi" }
+          if ($installers.Count -eq 0) {
+            throw "No Windows installers were found."
+          }
+          foreach ($installer in $installers) {
+            $signature = Get-AuthenticodeSignature $installer.FullName
+            if ($signature.Status -ne "Valid") {
+              throw "Invalid Authenticode signature: $($installer.FullName) ($($signature.Status))"
+            }
+          }
+      - run: npm run release:package-bridges
+      - run: npm run release:manifest
+      - run: npm run release:verify
+      - name: Attest installers and release manifests
+        uses: actions/attest@v4
+        with:
+          subject-path: |
+            src-tauri/target/release/bundle/**/*.dmg
+            src-tauri/target/release/bundle/**/*.AppImage
+            src-tauri/target/release/bundle/**/*.deb
+            src-tauri/target/release/bundle/**/*.rpm
+            src-tauri/target/release/bundle/**/*.msi
+            src-tauri/target/release/bundle/**/*.exe
+            release-packages/*
+            release-metadata/*.json
+            release-metadata/SHA256SUMS-*.txt
+      - run: npm run release:upload-evidence
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: statdata-release-evidence-${{ matrix.artifact }}
+          if-no-files-found: warn
+          path: |
+            bridges/jmp/bundle
+            bridges/sas/bundle
+            bridges/windows-com/bundle
+            src-tauri/target/release/bundle
+            release-packages
+            release-metadata

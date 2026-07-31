@@ -1,0 +1,17 @@
+{
+  "protocol_version": 1,
+  "name": "StatData JMP Bridge",
+  "executable": "./__EXECUTABLE__",
+  "arguments": [],
+  "timeout_seconds": 180,
+  "format": {
+    "id": "jmp",
+    "family": "JMP",
+    "label": "JMP data table",
+    "extensions": [".jmp"],
+    "can_read": true,
+    "can_write": true,
+    "trust": "experimental",
+    "metadata_features": []
+  }
+}

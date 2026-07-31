@@ -1,0 +1,30 @@
+{
+  "version": "2.0",
+  "class": "dataset",
+  "label": "Example population",
+  "source": "StatData Converter test fixture",
+  "id": ["area", "year"],
+  "size": [2, 2],
+  "dimension": {
+    "area": {
+      "label": "Area",
+      "category": {
+        "index": {
+          "north": 0,
+          "south": 1
+        },
+        "label": {
+          "north": "North",
+          "south": "South"
+        }
+      }
+    },
+    "year": {
+      "label": "Year",
+      "category": {
+        "index": ["2025", "2026"]
+      }
+    }
+  },
+  "value": [101, 103, 98, 100]
+}

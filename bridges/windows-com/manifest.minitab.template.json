@@ -1,0 +1,17 @@
+{
+  "protocol_version": 1,
+  "name": "StatData Minitab COM Bridge",
+  "executable": "./__EXECUTABLE__",
+  "arguments": ["--vendor", "minitab"],
+  "timeout_seconds": 600,
+  "format": {
+    "id": "minitab",
+    "family": "Minitab",
+    "label": "Modern Minitab worksheet / project",
+    "extensions": [".mwx", ".mtw", ".mpx", ".mpj"],
+    "can_read": true,
+    "can_write": true,
+    "trust": "experimental",
+    "metadata_features": []
+  }
+}

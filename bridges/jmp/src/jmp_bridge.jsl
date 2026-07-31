@@ -1,0 +1,48 @@
+//!
+Names Default To Here( 1 );
+
+action = Get Environment Variable( "STATDATA_JMP_ACTION" );
+sourcePath = Get Environment Variable( "STATDATA_JMP_SOURCE" );
+destinationPath = Get Environment Variable( "STATDATA_JMP_DESTINATION" );
+statusPath = Get Environment Variable( "STATDATA_JMP_STATUS" );
+
+Try(
+	If(
+		action == "read",
+			table = Open(
+				sourcePath,
+				Invisible,
+				Add to Recent Files( 0 ),
+				Quarantine Action( "Block Scripts" )
+			);
+			table << Save( destinationPath );
+			Close( table, No Save );
+		,
+		action == "write",
+			table = Open(
+				sourcePath,
+				Invisible,
+				Charset( "utf-8" ),
+				Add to Recent Files( 0 ),
+				Import Settings(
+					End Of Line( CRLF, CR, LF ),
+					End Of Field( Comma, CSV( 1 ) ),
+					Treat Leading Zeros as Character( 1 ),
+					Use Regional Settings( 0 ),
+					Scan Whole File( 1 ),
+					Labels( 1 ),
+					Column Names Start( 1 ),
+					First Named Column( 1 ),
+					Data Starts( 2 ),
+					Lines To Read( "All" )
+				)
+			);
+			table << Save( destinationPath );
+			Close( table, No Save );
+		,
+			Throw( "Unsupported StatData JMP bridge action." )
+	);
+	Save Text File( statusPath, "ok" );
+	,
+	Save Text File( statusPath, "error" );
+);

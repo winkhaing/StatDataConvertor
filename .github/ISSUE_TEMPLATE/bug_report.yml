@@ -1,0 +1,54 @@
+name: Bug report
+description: Report a reproducible conversion, packaging, or interface problem
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: Remove confidential data and credentials before attaching files.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: "0.10.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: operating-system
+    attributes:
+      label: Operating system
+      options:
+        - Windows
+        - macOS ARM64
+        - macOS Intel
+        - Linux
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: conversion
+    attributes:
+      label: Conversion direction
+      placeholder: "SPSS .sav to Stata .dta"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Include expected behavior, actual behavior, and reproduction steps.
+    validations:
+      required: true
+  - type: textarea
+    id: report
+    attributes:
+      label: Redacted fidelity report or error
+      description: Remove file paths, identifiers, and confidential values.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Data safety
+      options:
+        - label: I removed confidential or personally identifiable data.
+          required: true

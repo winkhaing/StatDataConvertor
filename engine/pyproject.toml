@@ -1,0 +1,39 @@
+[project]
+name = "statdata-converter"
+version = "0.10.0"
+description = "Local statistical data conversion engine with fidelity reports"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = "Apache-2.0"
+authors = [{ name = "StatData Converter contributors" }]
+dependencies = [
+  "openpyxl>=3.1.5,<4",
+  "pandas>=2.3,<4",
+  "rdata>=1.1,<2",
+  "xlrd>=2.0.2,<3",
+]
+
+[project.optional-dependencies]
+statistical = [
+  "pyreadstat>=1.3.2,<2",
+]
+build = [
+  "pyinstaller>=6.14,<7",
+]
+test = [
+  "pytest>=8.4,<10",
+]
+
+[project.scripts]
+statdata-converter = "statdata_converter.cli:main"
+
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/statdata_converter"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

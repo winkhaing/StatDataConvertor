@@ -1,0 +1,30 @@
+{
+  "id": "jmp19-basic-survey",
+  "license": "CC0-1.0",
+  "synthetic": true,
+  "created_by": {
+    "product": "JMP",
+    "version": "19.0",
+    "operating_system": "Windows 11"
+  },
+  "files": {
+    "native": "basic-survey.jmp",
+    "csv_export": "basic-survey.csv"
+  },
+  "expected": {
+    "rows": 4,
+    "columns": 6,
+    "column_names": [],
+    "storage_types": {},
+    "modeling_types": {},
+    "column_labels": {},
+    "formats": {},
+    "value_ordering": {},
+    "missing_values": {},
+    "column_properties": [],
+    "table_variables": {},
+    "has_formulas": false,
+    "has_row_states": false,
+    "has_table_scripts": false
+  }
+}

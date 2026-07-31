@@ -1,0 +1,106 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://statdata-converter.org/schemas/vendor-validation-manifest-v1.json",
+  "title": "StatData Converter vendor validation manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "format_id",
+    "vendor_product",
+    "vendor_version",
+    "operating_system",
+    "direction",
+    "fixture",
+    "expected"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "format_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "vendor_product": {
+      "type": "string",
+      "minLength": 1
+    },
+    "vendor_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "operating_system": {
+      "type": "string",
+      "minLength": 1
+    },
+    "direction": {
+      "enum": ["read", "write", "round_trip"]
+    },
+    "fixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "purpose"],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "purpose": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "expected": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["rows", "columns", "temporal_columns"],
+      "properties": {
+        "rows": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "columns": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "temporal_columns": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["name", "kind", "precision", "timezone"],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "kind": {
+                "enum": ["date", "time", "datetime", "duration"]
+              },
+              "precision": {
+                "enum": [
+                  "day",
+                  "second",
+                  "millisecond",
+                  "microsecond",
+                  "nanosecond"
+                ]
+              },
+              "timezone": {
+                "type": ["string", "null"]
+              }
+            }
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

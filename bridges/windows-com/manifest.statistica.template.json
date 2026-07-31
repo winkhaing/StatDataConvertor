@@ -1,0 +1,17 @@
+{
+  "protocol_version": 1,
+  "name": "StatData Statistica COM Bridge",
+  "executable": "./__EXECUTABLE__",
+  "arguments": ["--vendor", "statistica"],
+  "timeout_seconds": 600,
+  "format": {
+    "id": "statistica",
+    "family": "Statistica",
+    "label": "Statistica data spreadsheet",
+    "extensions": [".sta"],
+    "can_read": true,
+    "can_write": true,
+    "trust": "experimental",
+    "metadata_features": []
+  }
+}

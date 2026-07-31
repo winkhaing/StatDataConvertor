@@ -1,0 +1,5 @@
+respondent_id,group,satisfaction,interview_date
+1001,Control,4,2026-01-14
+1002,Treatment,5,2026-01-15
+1003,Treatment,,2026-01-16
+1004,Control,3,2026-01-17

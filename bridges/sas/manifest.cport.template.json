@@ -1,0 +1,22 @@
+{
+  "protocol_version": 1,
+  "name": "StatData SAS CPORT Bridge",
+  "executable": "./__EXECUTABLE__",
+  "arguments": ["--format", "sas_cport"],
+  "timeout_seconds": 600,
+  "format": {
+    "id": "sas_cport",
+    "family": "SAS",
+    "label": "SAS CPORT",
+    "extensions": [".cpo", ".cport"],
+    "can_read": true,
+    "can_write": true,
+    "trust": "experimental",
+    "metadata_features": [
+      "dataset_label",
+      "column_labels",
+      "value_labels",
+      "formats"
+    ]
+  }
+}
