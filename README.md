@@ -10,6 +10,10 @@ datasets between statistical software formats. It is designed around two rules:
 1. data never leaves the user's computer; and
 2. every conversion produces a machine-readable fidelity report.
 
+## Application preview
+
+![StatData Converter conversion screen](docs/images/statdata-converter-main-screen.png)
+
 ## Downloads
 
 Windows, macOS, and Linux packages are published on the
